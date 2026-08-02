@@ -7,7 +7,7 @@ The installer contains no credentials or private application code.
 
 - `curl`
 - `git`
-- Access to `minayaleon/reachcollective-cli` through SSH or HTTPS
+- Access to `ackwest/reachcollective-cli` through SSH or HTTPS
 
 Python and `uv` do not need to be installed in advance. The installer installs
 `uv` when it is missing, and `uv` manages the Python runtime used by RCLI.

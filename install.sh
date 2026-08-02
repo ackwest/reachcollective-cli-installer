@@ -3,8 +3,8 @@
 set -eu
 
 LATEST_URL="https://raw.githubusercontent.com/ackwest/reachcollective-cli-installer/main/latest.json"
-SSH_REPOSITORY="ssh://git@github.com/minayaleon/reachcollective-cli.git"
-HTTPS_REPOSITORY="https://github.com/minayaleon/reachcollective-cli.git"
+SSH_REPOSITORY="ssh://git@github.com/ackwest/reachcollective-cli.git"
+HTTPS_REPOSITORY="https://github.com/ackwest/reachcollective-cli.git"
 
 say() {
     printf '%s\n' "$*"
