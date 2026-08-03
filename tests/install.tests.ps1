@@ -56,7 +56,7 @@ try {
     )
     Set-Content -Path (Join-Path $temporaryDirectory "uv.cmd") -Encoding Ascii -Value @(
         "@echo off",
-        "@if \"%2\"==\"dir\" echo %RCLI_TEST_BIN%",
+        '@if "%2"=="dir" echo %RCLI_TEST_BIN%',
         "@exit /b 0"
     )
     Set-Content -Path (Join-Path $temporaryDirectory "rcli.cmd") -Encoding Ascii -Value @(
