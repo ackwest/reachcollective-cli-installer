@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-shell:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,3 +21,21 @@ jobs:
 
       - name: Validate release manifest
         run: python3 -m json.tool latest.json
+
+  validate-powershell:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate and test with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          [void][scriptblock]::Create((Get-Content -Raw install.ps1))
+          .\tests\install.tests.ps1
+
+      - name: Validate and test with PowerShell 7
+        shell: pwsh
+        run: |
+          [void][scriptblock]::Create((Get-Content -Raw install.ps1))
+          .\tests\install.tests.ps1
