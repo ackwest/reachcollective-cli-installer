@@ -5,11 +5,27 @@ The installer contains no credentials or private application code.
 
 ## Requirements
 
-- `git`
+- Git
 - Access to `ackwest/reachcollective-cli` through SSH or HTTPS
 
-The macOS and Linux installer also requires `curl`. The Windows installer runs
-in Windows PowerShell 5.1 or PowerShell 7 and requires Git for Windows.
+The macOS and Linux installer also requires `curl`.
+
+### Windows
+
+Before running the Windows installer:
+
+1. Download and install [Git for Windows](https://git-scm.com/install/windows.html).
+2. Close and reopen PowerShell so the updated `PATH` is available.
+3. Verify that Git can be found:
+
+   ```powershell
+   Get-Command git
+   git --version
+   ```
+
+The installer runs in Windows PowerShell 5.1 or PowerShell 7. It does not
+install Git automatically. If Git is missing, it stops and directs you to the
+official Git for Windows download page.
 
 Python and `uv` do not need to be installed in advance. The installer installs
 `uv` when it is missing, and `uv` manages the Python runtime used by RCLI.
