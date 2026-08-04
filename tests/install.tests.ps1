@@ -33,9 +33,9 @@ Assert-Equal "1.2.3" (Get-StableVersionFromManifest ([pscustomobject]@{ version 
 Assert-Throws { Get-StableVersionFromManifest ([pscustomobject]@{}) } "missing version"
 Assert-Throws { Get-StableVersionFromManifest ([pscustomobject]@{ version = "1.2.3-beta.1" }) } "prerelease version"
 
-Assert-Equal "ssh" (Resolve-ProtocolChoice "") "default protocol"
-Assert-Equal "ssh" (Resolve-ProtocolChoice "1") "numeric SSH protocol"
-Assert-Equal "https" (Resolve-ProtocolChoice "2") "numeric HTTPS protocol"
+Assert-Equal "https" (Resolve-ProtocolChoice "") "default protocol"
+Assert-Equal "https" (Resolve-ProtocolChoice "1") "numeric HTTPS protocol"
+Assert-Equal "ssh" (Resolve-ProtocolChoice "2") "numeric SSH protocol"
 Assert-Equal "https" (Resolve-ProtocolChoice "HTTPS") "named HTTPS protocol"
 Assert-Throws { Resolve-ProtocolChoice "ftp" } "invalid protocol"
 

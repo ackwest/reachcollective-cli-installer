@@ -110,8 +110,8 @@ function Resolve-ProtocolChoice {
 
     $normalizedChoice = ([string]$Choice).Trim().ToLowerInvariant()
     switch ($normalizedChoice) {
-        { $_ -in @("", "1", "ssh") } { return "ssh" }
-        { $_ -in @("2", "https") } { return "https" }
+        { $_ -in @("", "1", "https") } { return "https" }
+        { $_ -in @("2", "ssh") } { return "ssh" }
         default { Throw-InstallerError "invalid Git protocol selection: $Choice" }
     }
 }
@@ -176,17 +176,17 @@ function Select-GitProtocol {
     if (Test-InteractiveConsole) {
         Write-Host ""
         Write-Host "Git protocol:"
-        Write-Host "  1) SSH"
-        Write-Host "  2) HTTPS"
+        Write-Host "  1) HTTPS"
+        Write-Host "  2) SSH"
         $choice = Read-Host "Select [1]"
         return Resolve-ProtocolChoice $choice
     }
 
-    if (Test-RepositoryAccess $GitPath $SshUrl -NonInteractive) {
-        return "ssh"
-    }
     if (Test-RepositoryAccess $GitPath $HttpsUrl -NonInteractive) {
         return "https"
+    }
+    if (Test-RepositoryAccess $GitPath $SshUrl -NonInteractive) {
+        return "ssh"
     }
     Throw-InstallerError "unable to access the private CLI repository with SSH or HTTPS."
 }

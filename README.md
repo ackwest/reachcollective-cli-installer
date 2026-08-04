@@ -1,34 +1,10 @@
 # Reach Collective CLI installer
 
-Public bootstrap installer for the private `reachcollective-cli` repository.
-The installer contains no credentials or private application code.
+Installer for the Reach Collective CLI on macOS, Linux, and Windows.
 
-## Requirements
+## Requirement
 
-- Git
-- Access to `ackwest/reachcollective-cli` through SSH or HTTPS
-
-The macOS and Linux installer also requires `curl`.
-
-### Windows
-
-Before running the Windows installer:
-
-1. Download and install [Git for Windows](https://git-scm.com/install/windows.html).
-2. Close and reopen PowerShell so the updated `PATH` is available.
-3. Verify that Git can be found:
-
-   ```powershell
-   Get-Command git
-   git --version
-   ```
-
-The installer runs in Windows PowerShell 5.1 or PowerShell 7. It does not
-install Git automatically. If Git is missing, it stops and directs you to the
-official Git for Windows download page.
-
-Python and `uv` do not need to be installed in advance. The installer installs
-`uv` when it is missing, and `uv` manages the Python runtime used by RCLI.
+- [Git](https://git-scm.com/downloads)
 
 ## Install on macOS or Linux
 
@@ -38,38 +14,10 @@ curl -fsSL \
   | sh
 ```
 
-Interactive installations can select SSH or HTTPS. Non-interactive
-installations use the first protocol that already has working credentials.
-
-The version installed is the stable version declared in `latest.json`.
-
-## Install on Windows
-
-Run the native installer from PowerShell:
+## Install on Windows with PowerShell
 
 ```powershell
 irm https://raw.githubusercontent.com/ackwest/reachcollective-cli-installer/main/install.ps1 | iex
-```
-
-The installer supports both Windows PowerShell 5.1 and PowerShell 7. It installs
-`uv` when needed, adds the uv tool directory to `PATH`, and verifies the result
-with `rcli --version`.
-
-To select a protocol without an interactive prompt:
-
-```powershell
-$env:RCLI_GIT_PROTOCOL = "https"
-irm https://raw.githubusercontent.com/ackwest/reachcollective-cli-installer/main/install.ps1 | iex
-```
-
-Use `ssh` instead of `https` to select SSH. To inspect the installer before
-running it:
-
-```powershell
-$installer = Join-Path $env:TEMP "rcli-install.ps1"
-irm https://raw.githubusercontent.com/ackwest/reachcollective-cli-installer/main/install.ps1 -OutFile $installer
-notepad $installer
-powershell -ExecutionPolicy Bypass -File $installer
 ```
 
 ## Release contract

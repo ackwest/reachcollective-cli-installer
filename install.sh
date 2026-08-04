@@ -65,21 +65,21 @@ fetch_latest_version() {
 
 choose_protocol() {
     if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-        printf '\nGit protocol:\n  1) SSH\n  2) HTTPS\nSelect [1]: ' >/dev/tty
+        printf '\nGit protocol:\n  1) HTTPS\n  2) SSH\nSelect [1]: ' >/dev/tty
         choice=""
         IFS= read -r choice </dev/tty || true
         case "$choice" in
-            "" | 1 | ssh | SSH) printf 'ssh\n' ;;
-            2 | https | HTTPS) printf 'https\n' ;;
+            "" | 1 | https | HTTPS) printf 'https\n' ;;
+            2 | ssh | SSH) printf 'ssh\n' ;;
             *) fail "invalid Git protocol selection: $choice" ;;
         esac
         return
     fi
 
-    if GIT_TERMINAL_PROMPT=0 git ls-remote "$SSH_REPOSITORY" HEAD >/dev/null 2>&1; then
-        printf 'ssh\n'
-    elif GIT_TERMINAL_PROMPT=0 git ls-remote "$HTTPS_REPOSITORY" HEAD >/dev/null 2>&1; then
+    if GIT_TERMINAL_PROMPT=0 git ls-remote "$HTTPS_REPOSITORY" HEAD >/dev/null 2>&1; then
         printf 'https\n'
+    elif GIT_TERMINAL_PROMPT=0 git ls-remote "$SSH_REPOSITORY" HEAD >/dev/null 2>&1; then
+        printf 'ssh\n'
     else
         fail "unable to access the private CLI repository with SSH or HTTPS."
     fi
