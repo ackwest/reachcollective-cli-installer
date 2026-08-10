@@ -64,12 +64,16 @@ try {
         "@echo rcli 1.2.3",
         "@exit /b 0"
     )
+    Set-Content -Path (Join-Path $temporaryDirectory "gh.cmd") -Encoding Ascii -Value @(
+        "@echo off",
+        "@exit /b 0"
+    )
 
     $env:RCLI_TEST_BIN = $binDirectory
     $env:Path = "$temporaryDirectory$([IO.Path]::PathSeparator)$originalPath"
-    function Get-LatestVersion {
+    function Get-ReleaseManifest {
         param([string]$Url)
-        return "1.2.3"
+        return [pscustomobject]@{ version = "1.2.3" }
     }
 
     Invoke-RcliInstaller `

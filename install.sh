@@ -41,8 +41,6 @@ install_uv() {
     fi
 
     say "Installing uv..." >&2
-    temporary_directory=$(mktemp -d 2>/dev/null || mktemp -d -t rcli-installer)
-    trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
     curl -fsSL https://astral.sh/uv/install.sh -o "$temporary_directory/install-uv.sh"
     sh "$temporary_directory/install-uv.sh" >/dev/null
 
@@ -51,7 +49,52 @@ install_uv() {
     printf '%s\n' "$uv_path"
 }
 
-fetch_latest_version() {
+install_gh() {
+    if command -v gh >/dev/null 2>&1; then
+        return
+    fi
+
+    say "Installing GitHub CLI..."
+    case "$(uname -s)" in
+        Darwin)
+            command -v brew >/dev/null 2>&1 ||
+                fail "Homebrew is required to install GitHub CLI on macOS. Install it from https://brew.sh and run this installer again."
+            brew install gh
+            ;;
+        Linux)
+            if command -v apt-get >/dev/null 2>&1; then
+                if [ "$(id -u)" -eq 0 ]; then
+                    apt-get update
+                    apt-get install -y gh
+                elif command -v sudo >/dev/null 2>&1; then
+                    sudo apt-get update
+                    sudo apt-get install -y gh
+                else
+                    fail "Administrator access is required to install GitHub CLI."
+                fi
+            elif command -v dnf >/dev/null 2>&1; then
+                if [ "$(id -u)" -eq 0 ]; then
+                    dnf install -y gh
+                elif command -v sudo >/dev/null 2>&1; then
+                    sudo dnf install -y gh
+                else
+                    fail "Administrator access is required to install GitHub CLI."
+                fi
+            elif command -v brew >/dev/null 2>&1; then
+                brew install gh
+            else
+                fail "GitHub CLI is required. Install it from https://cli.github.com and run this installer again."
+            fi
+            ;;
+        *)
+            fail "GitHub CLI is required. Install it from https://cli.github.com and run this installer again."
+            ;;
+    esac
+
+    command -v gh >/dev/null 2>&1 || fail "GitHub CLI was installed but its executable could not be found."
+}
+
+fetch_release_manifest() {
     manifest=$(curl -fsSL "$LATEST_URL") || fail "unable to download latest.json."
     version=$(
         printf '%s\n' "$manifest" |
@@ -60,7 +103,44 @@ fetch_latest_version() {
     [ -n "$version" ] || fail "latest.json does not contain a version."
     printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' ||
         fail "latest.json contains an invalid version: $version"
-    printf '%s\n' "$version"
+    wheel_url=$(
+        printf '%s\n' "$manifest" |
+            sed -n 's/^[[:space:]]*"wheel_url"[[:space:]]*:[[:space:]]*"\([^"]*\)"[[:space:]]*[,]*[[:space:]]*$/\1/p'
+    )
+    wheel_sha256=$(
+        printf '%s\n' "$manifest" |
+            sed -n 's/^[[:space:]]*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)"[[:space:]]*[,]*[[:space:]]*$/\1/p'
+    )
+    if [ -n "$wheel_url" ] || [ -n "$wheel_sha256" ]; then
+        [ -n "$wheel_url" ] && [ -n "$wheel_sha256" ] ||
+            fail "latest.json must contain both wheel_url and sha256."
+        printf '%s\n' "$wheel_url" | grep -Eq '^https://' ||
+            fail "latest.json wheel_url must use HTTPS."
+        printf '%s\n' "$wheel_sha256" | grep -Eq '^[0-9a-fA-F]{64}$' ||
+            fail "latest.json contains an invalid sha256."
+    fi
+}
+
+verify_sha256() {
+    file_path=$1
+    expected_sha256=$2
+    if command -v shasum >/dev/null 2>&1; then
+        actual_sha256=$(shasum -a 256 "$file_path" | awk '{print $1}')
+    elif command -v sha256sum >/dev/null 2>&1; then
+        actual_sha256=$(sha256sum "$file_path" | awk '{print $1}')
+    else
+        fail "shasum or sha256sum is required to verify the RCLI download."
+    fi
+    [ "$actual_sha256" = "$expected_sha256" ] || fail "RCLI download checksum verification failed."
+}
+
+install_public_wheel() {
+    wheel_path="$temporary_directory/$(basename "$wheel_url")"
+    say "Downloading rcli $version..."
+    curl -fsSL "$wheel_url" -o "$wheel_path" || fail "unable to download the RCLI wheel."
+    verify_sha256 "$wheel_path" "$wheel_sha256"
+    say "Installing rcli $version..."
+    "$uv_path" tool install --force "$wheel_path"
 }
 
 choose_protocol() {
@@ -96,21 +176,28 @@ main() {
     require_command curl
     require_command git
 
+    temporary_directory=$(mktemp -d 2>/dev/null || mktemp -d -t rcli-installer)
+    trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
+
     uv_path=$(install_uv)
-    version=$(fetch_latest_version)
-    protocol=$(choose_protocol)
+    install_gh
+    fetch_release_manifest
 
-    case "$protocol" in
-        ssh) repository=$SSH_REPOSITORY ;;
-        https) repository=$HTTPS_REPOSITORY ;;
-        *) fail "unsupported Git protocol: $protocol" ;;
-    esac
-
-    verify_repository_access "$repository"
-    requirement="reachcollective-cli @ git+$repository@v$version"
-
-    say "Installing rcli $version with $protocol..."
-    "$uv_path" tool install --force "$requirement"
+    if [ -n "$wheel_url" ]; then
+        install_public_wheel
+    else
+        say "This release uses the legacy private-repository installer."
+        protocol=$(choose_protocol)
+        case "$protocol" in
+            ssh) repository=$SSH_REPOSITORY ;;
+            https) repository=$HTTPS_REPOSITORY ;;
+            *) fail "unsupported Git protocol: $protocol" ;;
+        esac
+        verify_repository_access "$repository"
+        requirement="reachcollective-cli @ git+$repository@v$version"
+        say "Installing rcli $version with $protocol..."
+        "$uv_path" tool install --force "$requirement"
+    fi
 
     bin_directory=$("$uv_path" tool dir --bin 2>/dev/null || true)
     rcli_path="${bin_directory:-$HOME/.local/bin}/rcli"

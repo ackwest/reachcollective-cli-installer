@@ -80,6 +80,52 @@ function Install-Uv {
     return $uvPath
 }
 
+function Find-Gh {
+    $ghPath = Find-Application "gh"
+    if ($ghPath) {
+        return $ghPath
+    }
+
+    $candidates = @(
+        (Join-Path $env:ProgramFiles "GitHub CLI\gh.exe"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links\gh.exe")
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Install-Gh {
+    $ghPath = Find-Gh
+    if ($ghPath) {
+        return $ghPath
+    }
+
+    $wingetPath = Find-Application "winget"
+    if (-not $wingetPath) {
+        Throw-InstallerError "GitHub CLI is required and winget is unavailable. Install GitHub CLI from https://cli.github.com and run this installer again."
+    }
+
+    Write-InstallerMessage "Installing GitHub CLI..."
+    & $wingetPath install --id GitHub.cli --source winget --exact --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Throw-InstallerError "winget could not install GitHub CLI."
+    }
+
+    $ghPath = Find-Gh
+    if (-not $ghPath) {
+        Throw-InstallerError "GitHub CLI was installed but gh.exe could not be found. Restart PowerShell and run this installer again."
+    }
+    $ghDirectory = Split-Path -Parent $ghPath
+    if (($env:Path -split [IO.Path]::PathSeparator) -notcontains $ghDirectory) {
+        $env:Path = "$ghDirectory$([IO.Path]::PathSeparator)$env:Path"
+    }
+    return $ghPath
+}
+
 function Get-StableVersionFromManifest {
     param([Parameter(Mandatory = $true)]$Manifest)
 
@@ -93,7 +139,7 @@ function Get-StableVersionFromManifest {
     return $version
 }
 
-function Get-LatestVersion {
+function Get-ReleaseManifest {
     param([Parameter(Mandatory = $true)][string]$Url)
 
     try {
@@ -102,7 +148,50 @@ function Get-LatestVersion {
     catch {
         Throw-InstallerError "unable to download latest.json. $($_.Exception.Message)"
     }
-    return Get-StableVersionFromManifest $manifest
+
+    [void](Get-StableVersionFromManifest $manifest)
+    $wheelUrl = [string]$manifest.wheel_url
+    $sha256 = [string]$manifest.sha256
+    if ($wheelUrl -or $sha256) {
+        if (-not $wheelUrl -or -not $sha256) {
+            Throw-InstallerError "latest.json must contain both wheel_url and sha256."
+        }
+        if (([uri]$wheelUrl).Scheme -ne "https") {
+            Throw-InstallerError "latest.json wheel_url must use HTTPS."
+        }
+        if ($sha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            Throw-InstallerError "latest.json contains an invalid sha256."
+        }
+    }
+    return $manifest
+}
+
+function Install-PublicWheel {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath,
+        [Parameter(Mandatory = $true)]$Manifest
+    )
+
+    $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) ("rcli-installer-" + [guid]::NewGuid())
+    New-Item -ItemType Directory -Path $temporaryDirectory -Force | Out-Null
+    try {
+        $wheelName = Split-Path -Leaf ([uri]$Manifest.wheel_url).AbsolutePath
+        $wheelPath = Join-Path $temporaryDirectory $wheelName
+        Write-InstallerMessage "Downloading rcli $($Manifest.version)..."
+        Invoke-WebRequest -Uri $Manifest.wheel_url -OutFile $wheelPath
+        $actualSha256 = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash
+        if ($actualSha256 -ne $Manifest.sha256) {
+            Throw-InstallerError "RCLI download checksum verification failed."
+        }
+        Write-InstallerMessage "Installing rcli $($Manifest.version)..."
+        & $UvPath tool install --force $wheelPath
+        if ($LASTEXITCODE -ne 0) {
+            Throw-InstallerError "uv could not install rcli."
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Resolve-ProtocolChoice {
@@ -220,20 +309,29 @@ function Invoke-RcliInstaller {
     }
 
     $uvPath = Install-Uv
-    $version = Get-LatestVersion $ManifestUrl
-    $selectedProtocol = Select-GitProtocol $gitPath $RequestedProtocol $SshUrl $HttpsUrl
-    $repository = Get-RepositoryForProtocol $selectedProtocol $SshUrl $HttpsUrl
+    [void](Install-Gh)
+    $manifest = Get-ReleaseManifest $ManifestUrl
+    $version = Get-StableVersionFromManifest $manifest
 
-    Write-InstallerMessage "Checking access to $repository..."
-    if (-not (Test-RepositoryAccess $gitPath $repository)) {
-        Throw-InstallerError "unable to access the private CLI repository."
+    if ([string]$manifest.wheel_url) {
+        Install-PublicWheel $uvPath $manifest
     }
+    else {
+        Write-InstallerMessage "This release uses the legacy private-repository installer."
+        $selectedProtocol = Select-GitProtocol $gitPath $RequestedProtocol $SshUrl $HttpsUrl
+        $repository = Get-RepositoryForProtocol $selectedProtocol $SshUrl $HttpsUrl
 
-    $requirement = "reachcollective-cli @ git+$repository@v$version"
-    Write-InstallerMessage "Installing rcli $version with $selectedProtocol..."
-    & $uvPath tool install --force $requirement
-    if ($LASTEXITCODE -ne 0) {
-        Throw-InstallerError "uv could not install rcli."
+        Write-InstallerMessage "Checking access to $repository..."
+        if (-not (Test-RepositoryAccess $gitPath $repository)) {
+            Throw-InstallerError "unable to access the private CLI repository."
+        }
+
+        $requirement = "reachcollective-cli @ git+$repository@v$version"
+        Write-InstallerMessage "Installing rcli $version with $selectedProtocol..."
+        & $uvPath tool install --force $requirement
+        if ($LASTEXITCODE -ne 0) {
+            Throw-InstallerError "uv could not install rcli."
+        }
     }
 
     $binDirectory = (& $uvPath tool dir --bin | Select-Object -Last 1).Trim()
