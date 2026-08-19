@@ -1,5 +1,5 @@
 {
-  "version": "0.7.10",
-  "wheel_url": "https://github.com/ackwest/reachcollective-cli-installer/releases/download/v0.7.10/reachcollective_cli-0.7.10-py3-none-any.whl",
-  "sha256": "4d52fcb115ac0088aa73ae5d150cc20e4d82afa63bd4a9eb7b9b729420d416b6"
+  "version": "0.7.11",
+  "wheel_url": "https://github.com/ackwest/reachcollective-cli-installer/releases/download/v0.7.11/reachcollective_cli-0.7.11-py3-none-any.whl",
+  "sha256": "d12f65f3a34290d2937d062dc38688e1354ed4f74b450395cf8a72450d1d5161"
 }
