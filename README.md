@@ -21,6 +21,14 @@ curl -fsSL \
 
 ## Install on Windows with PowerShell
 
+Run this command first in PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Then install the CLI:
+
 ```powershell
 irm https://raw.githubusercontent.com/ackwest/reachcollective-cli-installer/main/install.ps1 | iex
 ```
